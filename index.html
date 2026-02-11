@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>遅刻寸前だぁ！ ～TIKOKU PANIC!!!～</title>
+<style>
+:root{
+  --bg1:#081229; --accent:#F07D34; --dark:#253958; --white:#fff;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;}
+body{
+  background:linear-gradient(180deg,#f0f7ff 0%, #e8f3ff 40%, #cfeefe 100%);
+}
+
+/* ===== タイトル画面 ===== */
+#titleScreen{
+  position:fixed;inset:0;background:linear-gradient(180deg,#ffb6c1,#fff);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;z-index:10;
+}
+#titleScreen h1{font-size:38px;color:#ff2fa8;text-shadow:2px 2px 6px #00000040;margin:0;}
+#titleScreen p{color:#333;font-size:16px;margin-top:10px;}
+#titleScreen button{margin-top:20px;padding:12px 24px;border:none;border-radius:8px;
+  background:#ff2fa8;color:#fff;font-weight:700;cursor:pointer;transition:0.3s;}
+#titleScreen button:hover{background:#ff0077;transform:scale(1.05);}
+
+.header{text-align:center;padding:14px 10px 6px 10px;}
+.title{font-size:20px;color:var(--dark);font-weight:700;}
+.container{max-width:1000px;margin:0 auto;padding:12px;}
+#gameWrap{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;}
+@media(max-width:980px){#gameWrap{grid-template-columns:1fr;}}
+
+canvas#game{
+  width:100%;height:500px;border-radius:12px;display:block;
+  box-shadow:0 10px 30px rgba(0,0,0,0.15);
+  background:#000 url("自宅.jpg") center/cover no-repeat;
+  position:relative;overflow:hidden;
+}
+
+/* ===== 背景ワード表示 ===== */
+#bgText{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(40px,6vw,90px);
+  font-weight:900;
+  color:rgba(255,255,255,0.6);
+  text-shadow:0 0 10px rgba(0,0,0,0.7);
+  opacity:0;
+  transition:opacity 0.5s;
+  z-index:4; /* 💖背景上、キャラ下 */
+}
+
+.panel{
+  background:linear-gradient(180deg,#fff,#f7fbff);
+  padding:12px;border-radius:12px;border:2px solid rgba(37,57,88,0.06);
+  box-shadow:0 8px 20px rgba(37,57,88,0.04);
+}
+.panel h3{margin:6px 0 10px 0;color:var(--dark)}
+.btn{background:var(--dark);color:var(--white);border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700;}
+.btn.warn{background:var(--accent);color:#fff}
+.status{font-size:14px;margin:8px 0;}
+.big{font-size:18px;font-weight:700;color:var(--dark)}
+.wordBox{margin-top:12px;padding:10px;border-radius:8px;background:#fff;border:1px solid #eee;}
+.wordDisplay{font-size:20px;font-weight:800;letter-spacing:1px;color:var(--dark);word-break:break-all;text-align:center;}
+.jpNote{font-size:12px;color:#666;display:block;margin-bottom:4px;}
+.timeBarWrap{height:12px;background:#eee;border-radius:8px;overflow:hidden;margin-top:8px}
+.timeBar{height:100%;background:linear-gradient(90deg,#ff6b6b,#ff2fa8);width:100%}
+.inputRow{display:flex;gap:8px;margin-top:12px}
+.typingInput{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;font-size:16px}
+.smallNote{font-size:12px;color:#666;margin-top:6px}
+.footerNote{font-size:12px;color:#666;text-align:center;margin-top:12px}
+
+/* 💣キャラ立ち絵を最前面に */
+.faceWrap{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+  position:relative;
+  z-index:5; /* 💥背景より上に配置！ */
+}
+.faceImage{
+  width:100px;
+  height:100px;
+  border-radius:10px;
+  object-fit:cover;
+  z-index:6; /* 💖さらに上！ */
+}
+
+.progressWrap{margin-top:12px}
+.progressBar{height:18px;background:#eee;border-radius:9px;overflow:hidden}
+.progressInner{height:100%;background:linear-gradient(90deg,#5bd3a4,#2fb28b);width:0%}
+.bannerNote{background:linear-gradient(90deg, rgba(240,125,52,0.12), rgba(37,57,88,0.06));padding:8px;border-radius:8px;margin-top:8px}
+.credit{font-size:13px;color:#444;margin-top:8px}
+
+/* ===== 結果画面 ===== */
+#resultScreen{
+  position:fixed;inset:0;background:rgba(0,0,0,0.85);color:#fff;
+  display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:20;
+}
+#resultScreen h2{font-size:40px;margin:0;}
+#resultScreen button{margin-top:20px;padding:10px 20px;border:none;border-radius:8px;background:#ff2fa8;color:#fff;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- 💣 タイトル画面 -->
+<div id="titleScreen">
+  <!-- 背景画像 💖 -->
+  <div class="title-bg"></div>
+
+  <!-- 立ち絵キャラ 💥 -->
+  <img src="本気.png" alt="主人公立ち絵" class="title-character">
+
+  <!-- タイトル文字 💫 -->
+  <div class="title-content">
+    <h1>遅刻寸前だぁ！</h1>
+    <p>タイピングで運命を変えろ💥</p>
+    <button id="titleStartBtn">スタート</button>
+  </div>
+</div>
+
+<style>
+/* ==== タイトル画面演出追加 ==== */
+#titleScreen {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.title-bg {
+  position: absolute;
+  inset: 0;
+  background: url("ガッコウ.jpeg") center/cover no-repeat;
+  filter: brightness(0.9);
+  animation: zoomIn 8s ease-in-out forwards;
+  z-index: 1;
+}
+
+.title-character {
+  position: absolute;
+  bottom: 10%;
+  right: 20%;
+  width: 300px;
+  max-width: 40vw;
+  object-fit: contain;
+  z-index: 2;
+  animation: slideIn 2s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+
+.title-content {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  background: rgba(255,255,255,0.6);
+  padding: 20px 40px;
+  border-radius: 16px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 20px rgba(0,0,0,0.25);
+}
+
+.title-content h1 {
+  font-size: 38px;
+  color: #ff2fa8;
+  text-shadow: 2px 2px 8px #00000070;
+  margin: 0;
+}
+
+.title-content p {
+  color: #222;
+  font-size: 16px;
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+.title-content button {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #ff2fa8;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.title-content button:hover {
+  background: #ff0077;
+  transform: scale(1.05);
+}
+
+/* ✨アニメーション演出 */
+@keyframes zoomIn {
+  from { transform: scale(1); filter: brightness(0.8); }
+  to { transform: scale(1.1); filter: brightness(1); }
+}
+@keyframes slideIn {
+  from { transform: translateX(80%) scale(0.9); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+</style>
+
+
+<div class="header">
+  <div class="title">TIKOKU PANIC!!! ～絶望の登校戦線～</div>
+  <div style="font-size:12px;color:#666;margin-top:6px">入力時間8秒🔥 成功で進行+5% / 失敗で-30秒</div>
+</div>
+
+<div class="container">
+  <div id="gameWrap">
+    <div style="position:relative;">
+      <canvas id="game" width="900" height="500"></canvas>
+      <div id="bgText"></div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <button id="startBtn" class="btn">スタート</button>
+        <button id="restartBtn" class="btn" style="display:none;">再挑戦</button>
+        <div style="margin-left:auto"><span class="smallNote">正確に入力 → Enter</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>状態</h3>
+      <div class="status"><span class="big">残り時間: <span id="timeTxt">03:00</span></span></div>
+      <div class="timeBarWrap"><div id="timeBar" class="timeBar"></div></div>
+
+      <div class="status"><span class="big">進行状況</span></div>
+      <div class="progressWrap">
+        <div class="progressBar"><div id="progressInner" class="progressInner"></div></div>
+        <div style="font-size:13px;margin-top:6px">学校まで: <span id="progressTxt">0%</span></div>
+      </div>
+
+      <div class="status"><span class="big">現在の文字</span></div>
+      <div class="wordBox panel">
+        <span id="jpHint" class="jpNote">---</span>
+        <div class="wordDisplay" id="currentWord">-</div>
+        <div class="timeBarWrap" style="margin-top:8px"><div id="wordTimeBar" class="timeBar" style="width:100%"></div></div>
+        <div class="smallNote">8秒以内に正確に入力して Enter！</div>
+        <div class="inputRow">
+          <input id="typingInput" class="typingInput" placeholder="ここに入力して Enter" autocomplete="off" />
+          <button id="submitBtn" class="btn warn">送信</button>
+        </div>
+      </div>
+
+      <div class="faceWrap">
+        <img src="焦る.png" id="charFace" class="faceImage" alt="立ち絵">
+        <div style="flex:1">
+          <div style="font-weight:800;color:var(--dark)">主人公：ゆっくりちゃん</div>
+          <div id="mood" style="color:#666;font-size:13px;margin-top:6px">まだ始まってないわ。準備はいい？</div>
+        </div>
+      </div>
+
+      <div class="bannerNote">※難易度：ちょいムズですのでお遊び程度に</div>
+      <div class="credit">AIシステム科1年</div>
+    </div>
+  </div>
+  <div class="footerNote">背景は進行度20％ごとに変化するよ🌈</div>
+</div>
+
+<!-- 結果画面 -->
+<div id="resultScreen">
+  <h2 id="resultMsg">GAME OVER</h2>
+  <button id="retryBtn">再チャレンジ</button>
+</div>
+
+<script>
+let TOTAL_TIME = 180;
+let wordLimit = 8.0;
+let gameTimer = null;
+let wordTimer = null;
+let timeLeft = TOTAL_TIME;
+let progress = 0;
+let currentWord = null;
+let gameRunning = false;
+
+const timeTxt=document.getElementById('timeTxt');
+const timeBar=document.getElementById('timeBar');
+const currentWordEl=document.getElementById('currentWord');
+const wordTimeBar=document.getElementById('wordTimeBar');
+const typingInput=document.getElementById('typingInput');
+const submitBtn=document.getElementById('submitBtn');
+const progressInner=document.getElementById('progressInner');
+const progressTxt=document.getElementById('progressTxt');
+const mood=document.getElementById('mood');
+const charFace=document.getElementById('charFace');
+const canvas=document.getElementById('game');
+const jpHint=document.getElementById('jpHint');
+const bgText=document.getElementById('bgText');
+const titleScreen=document.getElementById('titleScreen');
+const resultScreen=document.getElementById('resultScreen');
+const resultMsg=document.getElementById('resultMsg');
+const retryBtn=document.getElementById('retryBtn');
+
+const BACKGROUNDS=["自宅.jpg","学校まで２.jpg","学校まで３.jpg","学校まで１.jpg","学校まで５.jpg","学校まで４.jpg","ガッコウ.jpeg"];
+
+const WORD_BANK=[
+  "shingou oosugidaro!","tanniga yabaiii!","game yarisugita!","yasumitai","tyousyoku tabetenaiyo-!",
+  "moetukisou","daruiyo---!!!","ganbare makeruna! yappa muri!!!","sora kireidana","iiwake dousuruka",
+  "tukaretade gozaru","iyani nattekita kamo","sensei kowaindayona","ryuunenka soremo mata yoshi",
+  "asino kankaku ga naiyo?","tenpen chii yo okore!! tanomu!!"
+];
+
+function speakSuccess(){
+  const lines=["おりゃー！","命を燃やせ！","よっしゃぁ！","まだ間に合う！"];
+  mood.textContent=lines[Math.floor(Math.random()*lines.length)];
+}
+function speakFail(){
+  const lines=["転んだぁ！","信号多すぎ！","遅れるぅ！","どっひゃー！"];
+  mood.textContent=lines[Math.floor(Math.random()*lines.length)];
+}
+
+function updateTimer(){
+  timeLeft--;
+  let m=Math.floor(timeLeft/60), s=timeLeft%60;
+  timeTxt.textContent=`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  timeBar.style.width=(timeLeft/TOTAL_TIME*100)+"%";
+  if(timeLeft<=0){ endGame(false); }
+}
+
+function startWordTimer(){
+  let start=Date.now();
+  wordTimer=setInterval(()=>{
+    const elapsed=(Date.now()-start)/1000;
+    const remain=Math.max(0,wordLimit-elapsed);
+    wordTimeBar.style.width=(remain/wordLimit*100)+"%";
+    if(remain<=0){ failWord(); }
+  },100);
+}
+function stopWordTimer(){ clearInterval(wordTimer); }
+
+function updateBackground(){
+  const index=Math.min(Math.floor(progress/20), BACKGROUNDS.length-1);
+  const bg=BACKGROUNDS[index];
+  canvas.style.background=`#000 url("${bg}") center/cover no-repeat`;
+}
+
+function startGame(){
+  titleScreen.style.display="none";
+  gameRunning=true;
+  timeLeft=TOTAL_TIME;
+  progress=0;
+  progressTxt.textContent="0%";
+  typingInput.value="";
+  resultScreen.style.display="none";
+  charFace.src="焦る.png"; // 💖スタート時に焦る顔！
+  nextWord();
+  updateBackground();
+  gameTimer=setInterval(updateTimer,1000);
+}
+
+function endGame(clear){
+  gameRunning=false;
+  clearInterval(gameTimer);
+  stopWordTimer();
+  resultScreen.style.display="flex";
+  resultMsg.textContent=clear ? "GAME クリア！" : "GAME OVER";
+  charFace.src=clear ? "喜ぶ.png" : "悲しむ.png";
+  mood.textContent=clear ? "やったぁ！登校成功！" : "絶望的に間に合わなかった…";
+}
+
+function nextWord(){
+  stopWordTimer();
+  const choice=WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)];
+  currentWord=choice;
+  currentWordEl.textContent=choice;
+  jpHint.textContent="入力して！";
+  showBgText(choice);
+  startWordTimer();
+}
+
+function showBgText(text){
+  bgText.textContent=text;
+  bgText.style.opacity=1;
+  setTimeout(()=>{bgText.style.opacity=0;},800);
+}
+
+function successWord(){
+  speakSuccess();
+  charFace.src="本気.png";
+  progress+=5;
+  updateBackground();
+  progressInner.style.width=progress+"%";
+  progressTxt.textContent=Math.min(progress,100)+"%";
+  if(progress>=100){endGame(true);}
+  nextWord();
+}
+function failWord(){
+  speakFail();
+  charFace.src="ヤバい.png";
+  timeLeft-=30;
+  nextWord();
+}
+
+function submitWord(){
+  if(!gameRunning)return;
+  const input=typingInput.value.trim();
+  if(input===currentWord){successWord();}
+  else{failWord();}
+  typingInput.value="";
+}
+
+submitBtn.onclick=submitWord;
+typingInput.addEventListener("keydown",e=>{if(e.key==="Enter")submitWord();});
+document.getElementById('startBtn').onclick=startGame;
+document.getElementById('titleStartBtn').onclick=startGame;
+retryBtn.onclick=startGame;
+</script>
+</body>
+</html>
